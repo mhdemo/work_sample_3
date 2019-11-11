@@ -3,6 +3,12 @@ F1 Racing EDA and Podium Predictions (In Progress)
 Matthew Harris
 11/11/2019
 
+  - [Introduction](#introduction)
+  - [Analysis Goals](#analysis-goals)
+  - [R Shiny Dashboarding](#r-shiny-dashboarding)
+  - [Data Sources](#data-sources)
+  - [Data Import](#data-import)
+
 ## Introduction
 
 This will be used as a sample to display some of my analytical
