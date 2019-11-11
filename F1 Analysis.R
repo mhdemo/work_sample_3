@@ -163,4 +163,31 @@ results %>%
          d_points = points) %>%
   filter(driverId == 1, d_position == 1)
   
+results %>%
+  filter(driverId == 1, raceId == 18) %>%
+  select(fastestLapTime)
 
+#Needed to convert the time column to a proper hms formatting. Was orginally recording minutes as hours
+lap_times %>%
+  filter(driverId == 1, raceId == 18) %>%
+  mutate(m_time = paste0("00:", str_sub(paste0(time), start = 1, end = 5))) %>%
+  mutate_at("m_time", hms::as_hms) %>%
+  arrange(m_time)
+
+  summarize(seconds_to_period(min(time)))
+
+seconds_to_period(milliseconds(87785))
+
+lap_times %>%
+  filter(driverId == 1, raceId == 18) %>%
+  slice(1) %>%
+  pull(time) %>%
+  str()
+    
+  paste0() %>%
+  str_sub(start = 1, end = 5) %>%
+  ms()
+
+?time
+
+str(hms("00:05:23"))
