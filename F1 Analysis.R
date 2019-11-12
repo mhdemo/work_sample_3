@@ -171,7 +171,7 @@ results %>%
 lap_times %>%
   filter(driverId == 1, raceId == 18) %>%
   mutate(m_time = paste0("00:", str_sub(paste0(time), start = 1, end = 5))) %>%
-  mutate_at("m_time", hms::as_hms) %>%
+  mutate_at("m_time", hms::as_hms)
   arrange(m_time)
 
   summarize(seconds_to_period(min(time)))

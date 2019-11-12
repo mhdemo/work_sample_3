@@ -8,6 +8,9 @@ Matthew Harris
   - [R Shiny Dashboarding](#r-shiny-dashboarding)
   - [Data Sources](#data-sources)
   - [Data Import](#data-import)
+  - [Data Wrangling/Cleansing](#data-wranglingcleansing)
+      - [Data Inspection](#data-inspection)
+      - [Data Cleansing](#data-cleansing)
 
 ## Introduction
 
@@ -36,7 +39,7 @@ Coming soon…
 
 The data used for this analysis contains a wide range of information of
 information pertaining to F1 races from 1950 through 2017. The data is
-currently separated into various tables. Part of this excerise will
+currently separated into various tables. Part of this exercise will
 require me to verify the accuracy of the data and combine the tables
 into a more easy to interpret format. The data used for this analysis
 can be found at the following Kaggle link. <br> [F1 Race
@@ -71,4 +74,64 @@ races <- read_csv("Raw Data/races.csv")
 results <- read_csv("Raw Data/results.csv")
 seasons <- read_csv("Raw Data/seasons.csv")
 status <- read_csv("Raw Data/status.csv")
+```
+
+## Data Wrangling/Cleansing
+
+### Data Inspection
+
+Now that the data is loaded I can begin to inspect it to determine if
+any transformations will be needed before I can conduct further
+analysis.
+
+``` r
+glimpse(drivers)
+```
+
+    ## Observations: 842
+    ## Variables: 9
+    ## $ driverId    <dbl> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1…
+    ## $ driverRef   <chr> "hamilton", "heidfeld", "rosberg", "alonso", "kovala…
+    ## $ number      <dbl> 44, NA, 6, 14, NA, NA, NA, 7, NA, NA, NA, NA, 19, NA…
+    ## $ code        <chr> "HAM", "HEI", "ROS", "ALO", "KOV", "NAK", "BOU", "RA…
+    ## $ forename    <chr> "Lewis", "Nick", "Nico", "Fernando", "Heikki", "Kazu…
+    ## $ surname     <chr> "Hamilton", "Heidfeld", "Rosberg", "Alonso", "Kovala…
+    ## $ dob         <chr> "07/01/1985", "10/05/1977", "27/06/1985", "29/07/198…
+    ## $ nationality <chr> "British", "German", "German", "Spanish", "Finnish",…
+    ## $ url         <chr> "http://en.wikipedia.org/wiki/Lewis_Hamilton", "http…
+
+I will repeat this process with the other tables using the following
+method.
+
+``` r
+map(list(circuits, constructor_results, constructors,
+         constructor_standings, drivers, driver_standings,
+         lap_times, pit_stops, pit_stops,
+         qualifying, races, results,
+         seasons, status), glimpse)
+```
+
+### Data Cleansing
+
+As expected the data need to be cleaned. There are unneeded fields for
+links to wikipedia pages, missing data in fields, redundant variables,
+and datetime issues that need to be resolved. The next couple of
+sections will focus on the transformations needed to clean the data.
+
+``` r
+results %>%
+  #Removes the redundant positionText variable
+  select(-positionText) %>%
+  #Converts the fastestLapTime and race time variables to hms
+  mutate(fastestLapTime = hms::as_hms(paste0("00:", str_sub(paste0(fastestLapTime), start = 1, end = 5))),
+         f_time = hms::as_hms(as_datetime(milliseconds(milliseconds)))) %>%
+  #Removes the updated variables
+  select(-time, -milliseconds) -> results
+
+drivers %>%
+  #Removing the driverRef variable since it usually the same as the surname
+  #Removing the number and code variables becuase they aren't available for all drivers
+  select(-c(driverRef, number, code, url)) %>%
+  #Converts the dob variable to date format
+  mutate(dob = dmy(dob)) -> drivers
 ```
