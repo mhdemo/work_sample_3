@@ -191,3 +191,7 @@ lap_times %>%
 ?time
 
 str(hms("00:05:23"))
+
+lap_times %>%
+  as_tibble() %>%
+  filter(raceId == 300)
