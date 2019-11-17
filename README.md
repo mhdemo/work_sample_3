@@ -125,7 +125,7 @@ map(list(circuits, constructor_results, constructors,
 ### Data Cleansing
 
 As expected the data need to be cleaned. There are unneeded fields for
-links to wikipedia pages, missing data in fields, redundant variables,
+links to Wikipedia pages, missing data in fields, redundant variables,
 and datetime issues that need to be resolved. The next couple of
 sections will focus on the transformations needed to clean the data.
 
@@ -184,7 +184,7 @@ lap_times %>%
   select(-c(time, milliseconds)) -> lap_times
 ```
 
-The rest of the tables contain either unneeded or redudant information
+The rest of the tables contain either unneeded or redundant information
 that can be imputed by using other available information.
 
 ``` r
@@ -196,11 +196,11 @@ rm(constructor_results, constructor_results, constructor_standings, driver_stand
 The last step before combining the various tables is to validate the
 accuracy of the information that they hold. A quick Wikipedia search
 returns information that should assist with this process. Validating the
-data allows me to have greated confidence in the accuracy of my analysis
+data allows me to have greater confidence in the accuracy of my analysis
 and predictions. I can also use the statistics that I am going to
 calculate to check my data once it’s joined. <br>
 
-First up are the `results` and `drivers` tables. I’m choosing to exmaine
+First up are the `results` and `drivers` tables. I’m choosing to examine
 a driver who was retired before the last date that the data was
 collected. That way I can confirm if the data capture all necessary win
 statistics to calculate a variety of driver stats.
