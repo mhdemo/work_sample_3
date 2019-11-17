@@ -5,7 +5,7 @@ Matthew Harris
 
   - [Introduction](#introduction)
   - [Analysis Goals](#analysis-goals)
-  - [R Shiny Dashboarding](#r-shiny-dashboarding)
+  - [R Shiny Dashboard](#r-shiny-dashboard)
   - [Data Sources](#data-sources)
   - [Data Import](#data-import)
   - [Data Wrangling/Cleansing](#data-wranglingcleansing)
@@ -13,6 +13,12 @@ Matthew Harris
       - [Data Cleansing](#data-cleansing)
       - [Data Validation](#data-validation)
       - [Joining the Tables](#joining-the-tables)
+  - [Data Analysis](#data-analysis)
+      - [Most Wins](#most-wins)
+      - [Constructor Performance Over
+        Time](#constructor-performance-over-time)
+      - [Median Race Time](#median-race-time)
+      - [Race Locations](#race-locations)
 
 ## Introduction
 
@@ -25,26 +31,26 @@ regularly.
 
 ## Analysis Goals
 
-I have little to no knowledge about F1 racing. My only insight prior to
-conducting this analysis is that Lewis Hamilton is one of the best
-drivers to ever touch a steering wheel. My goal for this project is to
-analyze the data to increase my knowledge of the sport and its
+I have little to no knowledge about Formula One racing. My only insight
+prior to conducting this analysis is that Lewis Hamilton is one of the
+best drivers to ever touch a steering wheel. My goal for this project is
+to analyze the data to increase my knowledge of the sport and its
 participants. After conducting my EDA I plan on creating a model that
 can be used to predict a driver’s probability of finishing 3rd or higher
 in their next race.
 
-## R Shiny Dashboarding
+## R Shiny Dashboard
 
 Coming soon…
 
 ## Data Sources
 
 The data used for this analysis contains a wide range of information of
-information pertaining to F1 races from 1950 through 2017. The data is
-currently separated into various tables. Part of this exercise will
-require me to verify the accuracy of the data and combine the tables
-into a more easy to interpret format. The data used for this analysis
-can be found at the following Kaggle link. <br> [F1 Race
+information pertaining to Formula One races from 1950 through 2017. The
+data is currently separated into various tables. Part of this exercise
+will require me to verify the accuracy of the data and combine the
+tables into a more easy to interpret format. The data used for this
+analysis can be found at the following Kaggle link. <br> [F1 Race
 Data](https://www.kaggle.com/cjgdev/formula-1-race-data-19502017)
 
 ## Data Import
@@ -58,6 +64,8 @@ library(lubridate)
 library(scales)
 library(caret)
 library(caretEnsemble)
+library(ggsci)
+library(ggmap)
 ```
 
 Loading csv files containing the data.
@@ -76,6 +84,7 @@ races <- read_csv("Raw Data/races.csv")
 results <- read_csv("Raw Data/results.csv")
 seasons <- read_csv("Raw Data/seasons.csv")
 status <- read_csv("Raw Data/status.csv")
+european_countries <- read_csv("Raw Data/european_countries.csv")
 ```
 
 ## Data Wrangling/Cleansing
@@ -151,7 +160,7 @@ circuits[49, 3] <- "Montjuïc"
 
 #Removes unneeded variables
 circuits %>%
-  select(-c(circuitRef, lat, lng, alt, url)) -> circuits
+  select(-c(circuitRef, alt, url)) -> circuits
 
 #Removes unneeded variables
 constructors %>%
@@ -160,7 +169,7 @@ constructors %>%
 
 #Renames the pit stop duration variable
 pit_stops %>%
-  mutate(ps_duration = seconds(duration)) %>%
+  mutate(ps_duration = as.numeric(duration)) %>%
   select(-c(duration, milliseconds)) -> pit_stops
 
 #Updates the variable names and removes the url variable
@@ -181,9 +190,6 @@ that can be imputed by using other available information.
 ``` r
 rm(constructor_results, constructor_results, constructor_standings, driver_standings, qualifying, seasons)
 ```
-
-    ## Warning in rm(constructor_results, constructor_results,
-    ## constructor_standings, : object 'constructor_results' not found
 
 ### Data Validation
 
@@ -231,21 +237,22 @@ results %>%
   left_join(constructors, by = "constructorId") %>%
   filter(driverId %in% c(30, 117)) %>%
   group_by(forename, surname) %>%
-  distinct(name) %>%
+  distinct(c_name) %>%
+  ungroup() %>%
   arrange(surname)
 ```
 
-    ## Warning: Trying to compute distinct() for variables not found in the data:
-    ## - `name`
-    ## This is an error, but only a warning is raised for compatibility reasons.
-    ## The operation will return the input unchanged.
-
-    ## # A tibble: 2 x 2
-    ## # Groups:   forename, surname [2]
-    ##   forename surname   
-    ##   <chr>    <chr>     
-    ## 1 Alain    Prost     
-    ## 2 Michael  Schumacher
+    ## # A tibble: 8 x 3
+    ##   c_name   forename surname   
+    ##   <chr>    <chr>    <chr>     
+    ## 1 Williams Alain    Prost     
+    ## 2 Ferrari  Alain    Prost     
+    ## 3 McLaren  Alain    Prost     
+    ## 4 Renault  Alain    Prost     
+    ## 5 Ferrari  Michael  Schumacher
+    ## 6 Benetton Michael  Schumacher
+    ## 7 Jordan   Michael  Schumacher
+    ## 8 Mercedes Michael  Schumacher
 
 So far so good. The values for the `career_wins`, `career_podium`, and
 `total_points` variables all match the values found on wikipedia for the
@@ -257,9 +264,12 @@ other variables in the remaining tables.
 
 Digging a little deeper into the `lap_times` and `races` tables reveal
 that the laptime data is only available for races after March, 3rd 1996.
-There are some other tables that are missing data before a certain date.
-Even so there is still enough complete data to gain some interesting
-insights.
+Using the same methodology to inspect the `pit_stops` table shows that
+it only has data back to 2011. There is still enough complete data from
+the other tables to conduct some insightful exploratory analysis but the
+lack of complete lap specific data could prove limiting when trying to
+build a model. I will have to keep the limitations of these two tables
+in mind.
 
 ``` r
 lap_times %>%
@@ -272,8 +282,216 @@ lap_times %>%
     ##   <date>     
     ## 1 1996-03-10
 
+``` r
+pit_stops %>%
+  left_join(races, by = "raceId") %>%
+  summarize(oldest_race = min(race_date))
+```
+
+    ## # A tibble: 1 x 1
+    ##   oldest_race
+    ##   <date>     
+    ## 1 2011-03-27
+
+``` r
+races %>%
+  summarize(oldest_race = min(race_date))
+```
+
+    ## # A tibble: 1 x 1
+    ##   oldest_race
+    ##   <date>     
+    ## 1 1950-05-13
+
 ### Joining the Tables
 
 The final step before I can begin analyzing and visualizing the data is
 to join all of these tables into a master table. This will also make
 model creation creation and testing easier.
+
+``` r
+results %>%
+  select(-c(resultId, number)) %>%
+  left_join(drivers, by = "driverId") %>%
+  left_join(races, by = "raceId") %>%
+  left_join(constructors, by = "constructorId") %>%
+  left_join(circuits, by = "circuitId") %>%
+  left_join(status, by = "statusId") -> master_table
+```
+
+The data within the `lap_times` and `pit_stops` tables will need to be
+summarized from the lap level to the race level before they can be
+joined to the `master_table`. I’ve chosen create a more precise
+`fastestLap` variable, and add a variable to record the driver with
+fastest time. I also created summary stats for total pits stops in a
+race, total pit stop duration, and average pit stop duration.
+
+``` r
+lap_times %>%
+  mutate(l_num = as.numeric(l_time)) %>%
+  group_by(raceId, driverId) %>%
+  top_n(-1, l_num) %>%
+  ungroup() %>%
+  select(raceId, driverId, position, l_time) %>%
+  rename(fl_position = position, fastestLapTime = l_time) %>%
+  group_by(raceId) %>%
+  mutate(fastestDriverTime = hms::as_hms(min(fastestLapTime))) %>%
+  ungroup() -> f_lap_times
+
+pit_stops %>%
+  group_by(raceId, driverId) %>%
+  summarize(total_stops = sum(stop),
+            total_p_duration = sum(ps_duration),
+            avg_p_duration = mean(ps_duration, na.rm = TRUE)) -> total_stops
+
+master_table %>%
+  select(-fastestLapTime) %>%
+  left_join(f_lap_times, by = c("raceId", "driverId")) %>%
+  left_join(total_stops, by = c("raceId", "driverId")) -> master_table
+```
+
+## Data Analysis
+
+Now comes the fun part\! With all of my data combined to a single table
+I can be begin my exploratory analysis and increase my knowledge of the
+sport.
+
+### Most Wins
+
+Given the tidy format of our data it is easy to identify and produce
+some quick stats on the top 5 drivers by win count. It’s pretty clear
+that finishing in first place isn’t easy considering that the top two
+drivers are barely at a 30% win percentage. It’s also very impressive
+that Alain Prost still sits within the top 3 even though his last race
+was over 2 decades ago\! It’s crazy to think that anyone who has watched
+Lewis Hamilton race was more likely to see him place in the top 3 than
+not.
+
+``` r
+master_table %>%
+  mutate(race_win = if_else(position == 1, TRUE, FALSE),
+         podium = if_else(position %in% c(1:3), TRUE, FALSE)) %>%
+  group_by(forename, surname) %>%
+  summarize(total_wins = sum(race_win, na.rm = TRUE),
+            total_podium = sum(podium, na.rm = TRUE),
+            last_race = max(race_date),
+            total_races = n(),
+            win_perc = percent(total_wins / total_races),
+            podium_perc = percent(total_podium / total_races)) %>%
+  ungroup() %>%
+  select(-forename) %>%
+  top_n(5, total_wins) %>%
+  arrange(desc(total_wins)) %>%
+  print.data.frame()
+```
+
+    ##      surname total_wins total_podium  last_race total_races win_perc
+    ## 1 Schumacher         91          155 2012-11-25         308    29.5%
+    ## 2   Hamilton         62          117 2017-11-26         208    29.8%
+    ## 3      Prost         51          106 1993-11-07         202    25.2%
+    ## 4     Vettel         47           99 2017-11-26         199    23.6%
+    ## 5      Senna         41           80 1994-05-01         162    25.3%
+    ##   podium_perc
+    ## 1       50.3%
+    ## 2       56.2%
+    ## 3       52.5%
+    ## 4       49.7%
+    ## 5       49.4%
+
+### Constructor Performance Over Time
+
+Next up is a bar plot that summarizes the top 3 constructors by podiums
+for each decade. Its clear from this graph that Ferrari was dominating
+the sport in the 50’s and 2000’s. Now it seems that Mercedes is the
+constructor to beat for a majority of the 2010’s.
+
+``` r
+master_table %>%
+  mutate(podium = if_else(position %in% c(1:3), 1, 0),
+         decade = cut(race_year, breaks = seq(1949, 2019, 10),
+                      labels = seq(1950, 2010, 10))) %>%
+  group_by(c_name, decade) %>%
+  summarize(decade_podium = sum(podium, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(c_name) %>%
+  mutate(total_podium = sum(decade_podium, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(decade) %>%
+  #Couldn't use top_n becasue I needed to utilize the dense_rank window rank function
+  mutate(p_rank = dense_rank(decade_podium),
+         max_rank = max(p_rank)) %>%
+  filter(p_rank > max_rank - 3, c_name != "Cooper-Climax") %>%
+  ggplot(aes(as.integer(as.character(decade)), decade_podium, fill = factor(decade))) +
+  geom_col(position = position_dodge2(width = 0.8, preserve = "single")) + 
+  scale_x_continuous(breaks = seq(1950, 2020, 10)) + scale_fill_npg() +
+  scale_y_continuous(limits = c(0, 210)) +
+  geom_text(aes(label = c_name, group = c_name), position = position_dodge(width = 9), hjust = -0.01, size = 3, angle = 45) +
+  labs(x = "Decade", y = "Podium Count", fill = "Decade")
+```
+
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+### Median Race Time
+
+This chart illustrates the change in median finish time over they years
+for the top three circuits with the most races. There is a clear trend
+as cars and drivers have gotten faster over time. There are some sudden
+increases in the graph that seem a little counter intuitive. This graph
+is also assuming that a given circuit has stayed the same in terms of
+distance and difficulty. I would need more data to control for these
+variables.
+
+``` r
+master_table %>%
+  group_by(name) %>%
+  mutate(total_races = n_distinct(raceId)) %>%
+  ungroup() %>%
+  group_by(name, race_year, total_races) %>%
+  summarize(med_time = median(f_time, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(r_rank = dense_rank(total_races),
+         max_rank = max(r_rank)) %>%
+  filter(r_rank > max_rank - 3) %>%
+  ggplot(aes(race_year, med_time, col = factor(name))) + geom_line(size = 1.5) +
+  scale_x_continuous(breaks = seq(1950, 2020, 10)) +
+  labs(x = "Year", y = "Finish Time", col = "Circuit") +
+  scale_color_npg()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+
+### Race Locations
+
+From the graphs I can see that Formula One really is a global sport,
+even though certain regions do hold more races than others. It’s clear
+that a large amount of races take place in Europe. The second graph
+zooms into Western Europe to show the dispursion of races across that
+region.
+
+``` r
+#Remove Antartica from the map
+map_data("world") %>%
+  filter(region != "Antarctica") -> world_data
+
+#Creates a table containg the total number of races per country
+master_table %>%
+  group_by(name, lat, lng, country) %>%
+  summarize(race_count = n_distinct(raceId)) -> rc_count_ll
+
+ggplot() +
+  geom_map(data = world_data, map = world_data,
+           aes(x = long, y = lat, map_id = region),
+           fill = "#a8a8a8", color = "#ffffff", size = 0.5) +
+  geom_point(data = rc_count_ll, aes(x = lng, y = lat, size = race_count), 
+             col = "red") +
+  scale_radius(range = c(2, 7)) +
+  labs(size = "Race Count", title = "Total Races by Country (Global)") +
+  theme(axis.title=element_blank(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.title = element_text(hjust = 0.5))
+```
+
+![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+
+![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->

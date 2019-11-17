@@ -8,20 +8,20 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
 
 ## Introduction
 This will be used as a sample to display some of my analytical capabilities in R. This project will demonstrate how useful R can be to perform analysis that is easy to reproduce and communicate. This is by no means an exhaustive demonstration of my proficiency with R, but should highlight common data analysis functions that I perform regularly.
 
 ## Analysis Goals
-I have little to no knowledge about F1 racing. My only insight prior to conducting this analysis is that Lewis Hamilton is one of the best drivers to ever touch a steering wheel. My goal for this project is to analyze the data to increase my knowledge of the sport and its participants. After conducting my EDA I plan on creating a model that can be used to predict a driver's probability of finishing 3rd or higher in their next race.
+I have little to no knowledge about Formula One racing. My only insight prior to conducting this analysis is that Lewis Hamilton is one of the best drivers to ever touch a steering wheel. My goal for this project is to analyze the data to increase my knowledge of the sport and its participants. After conducting my EDA I plan on creating a model that can be used to predict a driver's probability of finishing 3rd or higher in their next race.
 
-## R Shiny Dashboarding
+## R Shiny Dashboard
 Coming soon...
 
 ## Data Sources
-The data used for this analysis contains a wide range of information of information pertaining to F1 races from 1950 through 2017. The data is currently separated into various tables. Part of this exercise will require me to verify the accuracy of the data and combine the tables into a more easy to interpret format. The data used for this analysis can be found at the following Kaggle link. <br>
+The data used for this analysis contains a wide range of information of information pertaining to Formula One races from 1950 through 2017. The data is currently separated into various tables. Part of this exercise will require me to verify the accuracy of the data and combine the tables into a more easy to interpret format. The data used for this analysis can be found at the following Kaggle link. <br>
 [F1 Race Data](https://www.kaggle.com/cjgdev/formula-1-race-data-19502017)
 
 ## Data Import
@@ -33,10 +33,12 @@ library(lubridate)
 library(scales)
 library(caret)
 library(caretEnsemble)
+library(ggsci)
+library(ggmap)
 ```
 
 Loading csv files containing the data.
-```{r, message = FALSE, warning = FALSE}
+```{r, message = FALSE}
 circuits <- read_csv("Raw Data/circuits.csv")
 constructor_results <- read_csv("Raw Data/constructorResults.csv")
 constructors <- read_csv("Raw Data/constructors.csv")
@@ -50,6 +52,7 @@ races <- read_csv("Raw Data/races.csv")
 results <- read_csv("Raw Data/results.csv")
 seasons <- read_csv("Raw Data/seasons.csv")
 status <- read_csv("Raw Data/status.csv")
+european_countries <- read_csv("Raw Data/european_countries.csv")
 ```
 
 ## Data Wrangling/Cleansing
@@ -72,7 +75,7 @@ map(list(circuits, constructor_results, constructors,
 
 As expected the data need to be cleaned. There are unneeded fields for links to wikipedia pages, missing data in fields, redundant variables, and datetime issues that need to be resolved. The next couple of sections will focus on the transformations needed to clean the data.
 
-```{r, warning = FALSE}
+```{r}
 results %>%
   #Removes the redundant positionText variable
   select(-positionText) %>%
@@ -103,7 +106,7 @@ circuits[49, 3] <- "Montjuïc"
 
 #Removes unneeded variables
 circuits %>%
-  select(-c(circuitRef, lat, lng, alt, url)) -> circuits
+  select(-c(circuitRef, alt, url)) -> circuits
 
 #Removes unneeded variables
 constructors %>%
@@ -112,7 +115,7 @@ constructors %>%
 
 #Renames the pit stop duration variable
 pit_stops %>%
-  mutate(ps_duration = seconds(duration)) %>%
+  mutate(ps_duration = as.numeric(duration)) %>%
   select(-c(duration, milliseconds)) -> pit_stops
 
 #Updates the variable names and removes the url variable
@@ -164,7 +167,8 @@ results %>%
   left_join(constructors, by = "constructorId") %>%
   filter(driverId %in% c(30, 117)) %>%
   group_by(forename, surname) %>%
-  distinct(name) %>%
+  distinct(c_name) %>%
+  ungroup() %>%
   arrange(surname)
 
 ```
@@ -177,11 +181,18 @@ knitr::include_graphics("Project Images/driver_stats.png")
 ```
 <br>
 
-Digging a little deeper into the `lap_times` and `races` tables reveal that the laptime data is only available for races after March, 3rd 1996. There are some other tables that are missing data before a certain date. Even so there is still enough complete data to gain some interesting insights.
+Digging a little deeper into the `lap_times` and `races` tables reveal that the laptime data is only available for races after March, 3rd 1996. Using the same methodology to inspect the `pit_stops` table shows that it only has data back to 2011. There is still enough complete data from the other tables to conduct some insightful exploratory analysis but the lack of complete lap specific data could prove limiting when trying to build a model. I will have to keep the limitations of these two tables in mind.
 ```{r}
 lap_times %>%
   left_join(races, by = "raceId") %>%
   summarize(oldest_race = min(race_date)) 
+
+pit_stops %>%
+  left_join(races, by = "raceId") %>%
+  summarize(oldest_race = min(race_date))
+
+races %>%
+  summarize(oldest_race = min(race_date))
 
 ```
 
@@ -190,8 +201,178 @@ lap_times %>%
 The final step before I can begin analyzing and visualizing the data is to join all of these tables into a master table. This will also make model creation creation and testing easier. 
 
 ```{r}
+results %>%
+  select(-c(resultId, number)) %>%
+  left_join(drivers, by = "driverId") %>%
+  left_join(races, by = "raceId") %>%
+  left_join(constructors, by = "constructorId") %>%
+  left_join(circuits, by = "circuitId") %>%
+  left_join(status, by = "statusId") -> master_table
+
+```
+
+The data within the `lap_times` and `pit_stops` tables  will need to be summarized from the lap level to the race level before they can be joined to the `master_table`. I've chosen create a more precise `fastestLap` variable, and add a variable to record the driver with fastest time. I also created summary stats for total pits stops in a race, total pit stop duration, and average pit stop duration.
+
+```{r}
+lap_times %>%
+  mutate(l_num = as.numeric(l_time)) %>%
+  group_by(raceId, driverId) %>%
+  top_n(-1, l_num) %>%
+  ungroup() %>%
+  select(raceId, driverId, position, l_time) %>%
+  rename(fl_position = position, fastestLapTime = l_time) %>%
+  group_by(raceId) %>%
+  mutate(fastestDriverTime = hms::as_hms(min(fastestLapTime))) %>%
+  ungroup() -> f_lap_times
+
+pit_stops %>%
+  group_by(raceId, driverId) %>%
+  summarize(total_stops = sum(stop),
+            total_p_duration = sum(ps_duration),
+            avg_p_duration = mean(ps_duration, na.rm = TRUE)) -> total_stops
+
+master_table %>%
+  select(-fastestLapTime) %>%
+  left_join(f_lap_times, by = c("raceId", "driverId")) %>%
+  left_join(total_stops, by = c("raceId", "driverId")) -> master_table
+
+```
+
+## Data Analysis
+
+Now comes the fun part! With all of my data combined to a single table I can be begin my exploratory analysis and increase my knowledge of the sport. 
+
+### Most Wins
+
+Given the tidy format of our data it is easy to identify and produce some quick stats on the top 5 drivers by win count. It's pretty clear that finishing in first place isn't easy considering that the top two drivers are barely at a 30% win percentage. It's also very impressive that Alain Prost still sits within the top 3 even though his last race was over 2 decades ago! It's crazy to think that anyone who has watched Lewis Hamilton race was more likely to see him place in the top 3 than not.
+
+```{r}
+master_table %>%
+  mutate(race_win = if_else(position == 1, TRUE, FALSE),
+         podium = if_else(position %in% c(1:3), TRUE, FALSE)) %>%
+  group_by(forename, surname) %>%
+  summarize(total_wins = sum(race_win, na.rm = TRUE),
+            total_podium = sum(podium, na.rm = TRUE),
+            last_race = max(race_date),
+            total_races = n(),
+            win_perc = percent(total_wins / total_races),
+            podium_perc = percent(total_podium / total_races)) %>%
+  ungroup() %>%
+  select(-forename) %>%
+  top_n(5, total_wins) %>%
+  arrange(desc(total_wins)) %>%
+  print.data.frame()
+  
+```
+
+### Constructor Performance Over Time
+
+Next up is a bar plot that summarizes the top 3 constructors by podiums for each decade. Its clear from this graph that Ferrari was dominating the sport in the 50's and 2000's. Now it seems that Mercedes is the constructor to beat for a majority of the 2010's.
+
+```{r, fig.width=10}
+master_table %>%
+  mutate(podium = if_else(position %in% c(1:3), 1, 0),
+         decade = cut(race_year, breaks = seq(1949, 2019, 10),
+                      labels = seq(1950, 2010, 10))) %>%
+  group_by(c_name, decade) %>%
+  summarize(decade_podium = sum(podium, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(c_name) %>%
+  mutate(total_podium = sum(decade_podium, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(decade) %>%
+  #Couldn't use top_n becasue I needed to utilize the dense_rank window rank function
+  mutate(p_rank = dense_rank(decade_podium),
+         max_rank = max(p_rank)) %>%
+  filter(p_rank > max_rank - 3, c_name != "Cooper-Climax") %>%
+  ggplot(aes(as.integer(as.character(decade)), decade_podium, fill = factor(decade))) +
+  geom_col(position = position_dodge2(width = 0.8, preserve = "single")) + 
+  scale_x_continuous(breaks = seq(1950, 2020, 10)) + scale_fill_npg() +
+  scale_y_continuous(limits = c(0, 210)) +
+  geom_text(aes(label = c_name, group = c_name), position = position_dodge(width = 9), hjust = -0.01, size = 3, angle = 45) +
+  labs(x = "Decade", y = "Podium Count", fill = "Decade")
+
+```
 
 
+### Median Race Time
+
+This chart illustrates the change in median finish time over they years for the top three circuits with the most races. There is a clear trend as cars and drivers have gotten faster over time. There are some sudden increases in the graph that seem a little counter intuitive. This graph is also assuming that a given circuit has stayed the same in terms of distance and difficulty. I would need more data to control for these variables.
+
+
+```{r, fig.width=10}
+master_table %>%
+  group_by(name) %>%
+  mutate(total_races = n_distinct(raceId)) %>%
+  ungroup() %>%
+  group_by(name, race_year, total_races) %>%
+  summarize(med_time = median(f_time, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(r_rank = dense_rank(total_races),
+         max_rank = max(r_rank)) %>%
+  filter(r_rank > max_rank - 3) %>%
+  ggplot(aes(race_year, med_time, col = factor(name))) + geom_line(size = 1.5) +
+  scale_x_continuous(breaks = seq(1950, 2020, 10)) +
+  labs(x = "Year", y = "Finish Time", col = "Circuit") +
+  scale_color_npg()
+
+```
+
+### Race Locations
+
+From the graphs I can see that Formula One really is a global sport, even though certain regions do hold more races than others. It's clear that a large amount of races take place in Europe. The second graph zooms into Western Europe to show the dispursion of races across that region.
+
+```{r, fig.width=15, fig.height=7}
+#Remove Antartica from the map
+map_data("world") %>%
+  filter(region != "Antarctica") -> world_data
+
+#Creates a table containg the total number of races per country
+master_table %>%
+  group_by(name, lat, lng, country) %>%
+  summarize(race_count = n_distinct(raceId)) -> rc_count_ll
+
+ggplot() +
+  geom_map(data = world_data, map = world_data,
+           aes(x = long, y = lat, map_id = region),
+           fill = "#a8a8a8", color = "#ffffff", size = 0.5) +
+  geom_point(data = rc_count_ll, aes(x = lng, y = lat, size = race_count), 
+             col = "red") +
+  scale_radius(range = c(2, 7)) +
+  labs(size = "Race Count", title = "Total Races by Country (Global)") +
+  theme(axis.title=element_blank(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r, echo = FALSE, fig.width=10, fig.height=9}
+european_countries %>%
+  filter(Country != "Russia") %>%
+  mutate(Country = recode(Country, "United Kingdom" = "UK")) %>%
+  pull() -> european_countries_formatted
+  
+world_data %>%
+  filter(region %in% european_countries_formatted) -> europe_data
+
+rc_count_ll %>%
+  semi_join(europe_data %>%
+              select(region),
+            by = c("country" = "region")) -> rc_count_ll_eu
+
+ggplot() +
+  geom_map(data = europe_data, map = europe_data,
+           aes(x = long, y = lat, map_id = region),
+           fill = "#949494", color = "#ffffff", size = 0.5) +
+  geom_point(data = rc_count_ll_eu, aes(x = lng, y = lat, size = race_count), 
+             col = "red") +
+  labs(size = "Race Count", title = "Total Races by Country (Europe)") +
+  scale_radius(range = c(1.5, 10)) +
+  theme(axis.title=element_blank(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
 ```
 
