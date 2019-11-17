@@ -45,12 +45,12 @@ Coming soon…
 
 ## Data Sources
 
-The data used for this analysis contains a wide range of information of
-information pertaining to Formula One races from 1950 through 2017. The
-data is currently separated into various tables. Part of this exercise
-will require me to verify the accuracy of the data and combine the
-tables into a more easy to interpret format. The data used for this
-analysis can be found at the following Kaggle link. <br> [F1 Race
+The data used for this analysis contains a wide range of information
+related to Formula One races from 1950 through 2017. The data are
+currently separated into various tables. Part of this exercise will
+require me to verify the accuracy of the data and combine the tables
+into a more easy to interpret format. The data used for this analysis
+can be found at the following Kaggle link. <br> [F1 Race
 Data](https://www.kaggle.com/cjgdev/formula-1-race-data-19502017)
 
 ## Data Import
