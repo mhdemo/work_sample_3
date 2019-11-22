@@ -600,7 +600,8 @@ variables selected I can examine the model by using the `summary`
 function. Here we can see that the variables used in the model perform
 better than the null model. This is a good indication that the variables
 are helping to increase the fit of the model but I still need to test
-the model on new data.
+the model on new data. I can also see that the grid position is the most
+significant of all the variables in the model.
 
 ``` r
 train_set %>%
