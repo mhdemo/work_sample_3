@@ -363,7 +363,7 @@ master_table %>%
 ## Data Analysis
 
 Now comes the fun part\! With all of my data combined to a single table,
-I can be begin my exploratory analysis.
+I can begin my exploratory analysis.
 
 ### Most Wins
 
