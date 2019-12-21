@@ -1,7 +1,7 @@
 ---
-title: "F1 Racing EDA and Podium Predictions (In Progress)"
-author: "Matthew Harris"
-date: 11/11/2019
+#title: "F1 Racing EDA and Podium Predictions (In Progress)"
+#author: "Matthew Harris"
+#date: 11/11/2019
 output:
   github_document:
     toc: TRUE

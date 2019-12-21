@@ -1,7 +1,3 @@
-F1 Racing EDA and Podium Predictions (In Progress)
-================
-Matthew Harris
-11/11/2019
 
   - [Introduction](#introduction)
   - [Analysis Goals](#analysis-goals)
