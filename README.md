@@ -542,15 +542,15 @@ master_table %>%
 
 First up in the modeling process is deciding what transformations may be
 useful for our input variables. Utilizing the lap performance data such
-as lap times and pit stops would be useful, but unfortunately that data
-aren’t available for all drivers. My goal is to create a model that uses
-available data for all of the drivers. The new variables that I have
-decided to create are median race position, total career points, total
-career podiums, podiums as a percent of total races, career length, and
-grid position for the next race. All of these metrics will be summarized
-as career totals just before the drivers next race. The goal is to
-capture all available career data for each driver and use that to train
-the model.
+as lap times and pit stops would be useful, but unfortunately those
+metrics aren’t available for all drivers. My goal is to create a model
+that uses available data for all of the drivers. The new variables that
+I have decided to create are median race position, total career points,
+total career podiums, podiums as a percent of total races, career
+length, and grid position for the next race. All of these metrics will
+be summarized as career totals just before the drivers next race. The
+goal is to capture all available career data for each driver and use
+that to train the model.
 
 ``` r
 master_table %>%
