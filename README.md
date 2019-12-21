@@ -24,6 +24,8 @@
       - [Simple Model Comparison](#simple-model-comparison)
   - [Conclusion](#conclusion)
 
+<img src="Project Images/photo-1508175911810-a4817cd3d7b4.jpeg" width="550px" style="display: block; margin: auto;" />
+
 ## Introduction
 
 This project is a sample displaying some of my analytical capabilities
@@ -434,7 +436,7 @@ master_table %>%
   labs(x = "Decade", y = "Podium Count", fill = "Decade")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 ### Median Race Time
 
@@ -463,7 +465,7 @@ master_table %>%
   scale_color_npg()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
 ### Race Locations
 
@@ -497,9 +499,9 @@ ggplot() +
         plot.title = element_text(hjust = 0.5))
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
-
 ![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 ### Driver Age and Count Over the Decades
 
@@ -522,7 +524,7 @@ master_table %>%
   labs(x = "Decade", y = "Age")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 ``` r
 master_table %>%
@@ -534,7 +536,7 @@ master_table %>%
   scale_x_continuous(breaks = seq(1950, 2020, 10))
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-2.png)<!-- -->
 
 ## Podium Predictions
 
@@ -604,7 +606,7 @@ train_set %>%
   ggplot(aes(nr_podium, nr_grid, group = nr_podium)) + geom_boxplot()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 ``` r
 # train_set %>%

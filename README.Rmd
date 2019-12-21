@@ -11,6 +11,11 @@ output:
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
 
+```{r, out.width = "550px", echo = FALSE, fig.align="center"}
+knitr::include_graphics("Project Images/photo-1508175911810-a4817cd3d7b4.jpeg")
+
+```
+
 ## Introduction
 This project is a sample displaying some of my analytical capabilities in R. It will demonstrate how useful R can be to perform analysis that is easy to reproduce and communicate. This is by no means an exhaustive demonstration of my proficiency with R, but should highlight common data analysis functions that I perform regularly.
 
