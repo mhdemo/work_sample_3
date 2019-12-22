@@ -43,24 +43,32 @@ library(ggmap)
 library(Information)
 library(PRROC)
 library(OptimalCutpoints)
+library(here)
 ```
 
-Loading csv files containing the data.
+Loading csv files containing the data. I'm using there `here` function to feed a complete list of all the csv files in the Raw Data folder. These files names are then mapped over to create a list of data frames, renamed, and then saved separately to the global environment.
+
 ```{r, message = FALSE}
-circuits <- read_csv("Raw Data/circuits.csv")
-constructor_results <- read_csv("Raw Data/constructorResults.csv")
-constructors <- read_csv("Raw Data/constructors.csv")
-constructor_standings <- read_csv("Raw Data/constructorStandings.csv")
-drivers <- read_csv("Raw Data/drivers.csv")
-driver_standings <- read_csv("Raw Data/driverStandings.csv")
-lap_times <- read_csv("Raw Data/lapTimes.csv")
-pit_stops <- read_csv("Raw Data/pitStops.csv")
-qualifying <- read_csv("Raw Data/qualifying.csv")
-races <- read_csv("Raw Data/races.csv")
-results <- read_csv("Raw Data/results.csv")
-seasons <- read_csv("Raw Data/seasons.csv")
-status <- read_csv("Raw Data/status.csv")
-european_countries <- read_csv("Raw Data/european_countries.csv")
+#Creates a vector of the csv file names
+proj_files <- dir(path = here("Raw Data"), pattern = "*.csv")
+
+#Maps over the files names to load each csv file into a combined list
+proj_df <- proj_files %>%
+  map(~read_csv(file = here("Raw Data", .x)))
+
+#Regex to format the file names
+proj_files %>%
+  str_remove_all(".csv") %>%
+  str_replace_all("([a-z])([A-Z])", "\\1_\\2") %>%
+  tolower() -> proj_files
+
+#Feeds the new files names to each item in the list
+names(proj_df) <- proj_files
+
+#Loads the list components to the global environment
+list2env(proj_df, .GlobalEnv)
+
+rm(proj_df)
 ```
 
 ## Data Wrangling/Cleansing
@@ -74,11 +82,7 @@ glimpse(drivers)
 
 I will repeat this process with the other tables using the following method.
 ```{r, eval = FALSE}
-map(list(circuits, constructor_results, constructors,
-         constructor_standings, drivers, driver_standings,
-         lap_times, pit_stops, pit_stops,
-         qualifying, races, results,
-         seasons, status), glimpse)
+map(list(get(proj_files)), glimpse)
 ```
 ### Data Cleansing
 
