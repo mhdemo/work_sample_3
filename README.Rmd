@@ -250,6 +250,9 @@ master_table %>%
   left_join(f_lap_times, by = c("raceId", "driverId")) %>%
   left_join(total_stops, by = c("raceId", "driverId")) -> master_table
 
+#Exports the data to be used in the R Shiny application
+write_rds(master_table, path = paste0(here(), "/F1_App/master_table.rds"))
+
 ```
 
 ## Data Analysis
