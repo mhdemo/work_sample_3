@@ -132,7 +132,10 @@ server <- function(input, output, session) {
         
         race_table() %>%
             filter(drv_name %in% c(input$drv_1, input$drv_2)) %>%
-            ggplot(aes(lap, l_time, col = factor(drv_name))) + geom_point() +
+            ggplot(aes(lap, l_time, col = factor(drv_name), 
+                       text = paste0("Driver: ", drv_name, "<br>",
+                                     "Lap: ", lap, "<br>",
+                                     "Lap Time: ", l_time))) + geom_point() +
             scale_x_continuous(breaks = seq(0, 100, 10)) +
             geom_line() + labs(x = "Lap", y = "Lap Time", color = "Driver",
                                title = "Driver vs Driver Race Performance")
