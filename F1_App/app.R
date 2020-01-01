@@ -9,12 +9,14 @@ library(readr)
 library(stringr)
 library(tidyr)
 library(ggsci)
+library(DT)
+library(here)
 
 #Loads data ####
-read_rds("master_table.rds")
+master_table <- read_rds(paste0(here(), "/F1_App/master_table.rds"))
+lap_times <- read_csv(paste0(here(), "/F1_App/lapTimes.csv"))
 
-lap_times <- read_csv("lapTimes.csv")
-
+#Formats data ####
 lap_times %>%
     mutate(l_time = hms::as_hms(as_datetime(milliseconds(milliseconds)))) %>%
     select(-c(time, milliseconds)) %>%
@@ -22,11 +24,24 @@ lap_times %>%
                   distinct(raceId, driverId, forename, surname, 
                            race_date, location, country, name,
                            grid, position) %>%
-                  mutate(f_position = position),
+                  rename(f_position = position),
               by = c("raceId", "driverId")) %>%
     mutate(race_location = paste0(location, ", ", country),
            drv_name = iconv(paste(forename, surname), 
-                            from = "UTF-8", to = "ASCII", sub = "")) -> lap_times
+                            from = "UTF-8", to = "ASCII", sub = ""),
+           dp_name = paste0(f_position, ":", drv_name)) -> lap_times
+
+master_table %>%
+    mutate(drv_name = iconv(paste(forename, surname), 
+                            from = "UTF-8", to = "ASCII", sub = "")) %>%
+    group_by(driverId) %>%
+    mutate(podium = if_else(positionOrder %in% c(1:3), 1, 0),
+           win = if_else(positionOrder == 1, 1, 0)) %>%
+    ungroup() -> master_table
+
+#Remove Antartica from the map
+map_data("world") %>%
+    filter(region != "Antarctica") -> world_data
 
 #Custom color pallette ####
 my_pal <- pal_rickandmorty()(7)
@@ -39,7 +54,8 @@ header <- dashboardHeader(
 
 sidebar <- dashboardSidebar(
     sidebarMenu(
-        menuItem("Driver vs. Driver", tabName = "drv_v_drv", icon = icon("chart-line")),
+        menuItem("Driver vs. Driver: Single Race", tabName = "drv_v_drv", icon = icon("chart-line")),
+        menuItem("Driver vs. Driver: Career", tabName = "drv_career", icon = icon("chart-line")),
         menuItem("Total Wins/Podiums by Agg", tabName = "wpa", icon = icon("chart-bar"))
         # selectizeInput("agg_grp", "Aggregate Selecrion",
         #                choices = c("All", "Butter" = "butter", "Cheese Barrel" = "cheese_barrel",
@@ -55,7 +71,7 @@ body <- dashboardBody(
                     column(2, offset = 0, style = "padding:1px",
                            selectizeInput("r_loc", "Select Race Location:",
                                        choices = lap_times %>%
-                                           arrange(desc(race_location)) %>%
+                                           arrange(race_location) %>%
                                            pull(race_location) %>%
                                            unique())),
                     column(2, offset = 0, style = "padding:1px",
@@ -68,18 +84,25 @@ body <- dashboardBody(
                            selectizeInput("drv_2", "Select Driver 2:",
                                        choices = NULL))),
                 fluidRow(
-                    box(plotlyOutput("dvd_line", height = 500), width = 12)
+                    box(plotlyOutput("drv_2_diff", height = 500), width = 12)),
+                fluidRow(
+                    box(plotlyOutput("dvd_line", height = 500), width = 12)),
+                fluidRow(
+                    box(DT::dataTableOutput("dvd_table"), width = 12)
                 )
+        ),
+        tabItem(tabName = "drv_career",
+                fluidRow(
+                    column(2, offset = 0, style = "padding:1px",
+                           selectizeInput("drv_hist", "Select Driver(s):",
+                                          choices = master_table %>%
+                                              pull(drv_name) %>%
+                                              unique(),
+                                          selected = "Lewis Hamilton",
+                                          multiple = TRUE))),
+                fluidRow(
+                    box(plotlyOutput("tot_pod", height = 500), width = 12))
         )
-        # tabItem(tabName = "fore",
-        #         fluidRow(
-        #             numericInput("h_cast", "Forecast Training Window - n",
-        #                          value = 2, min = 1, max = 12,
-        #                          step = 1),
-        #             actionButton("f_cast", "Forecast"),
-        #             box(plotlyOutput("fore_gr", height = 750), width = 12)
-        #         )
-        # )
     )
 )
 
@@ -91,7 +114,8 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output, session) {
-    
+
+#Reactive expressions ####
     observeEvent(input$r_loc,
                  {updateSelectInput(session, "r_date",
                                     choices = lap_times %>%
@@ -106,7 +130,7 @@ server <- function(input, output, session) {
                                            filter(race_location == input$r_loc,
                                                   race_date == ymd(input$r_date)) %>%
                                            arrange(f_position) %>%
-                                           pull(drv_name) %>%
+                                           pull(dp_name) %>%
                                            unique())})
     
     observeEvent(input$r_date,
@@ -115,7 +139,7 @@ server <- function(input, output, session) {
                                            filter(race_location == input$r_loc,
                                                   race_date == ymd(input$r_date)) %>%
                                            arrange(f_position) %>%
-                                           pull(drv_name) %>%
+                                           pull(dp_name) %>%
                                            unique())})
     
     race_table <- eventReactive(input$r_date,
@@ -128,18 +152,136 @@ server <- function(input, output, session) {
                                     
                                 })
     
+    drv_table <- eventReactive(input$drv_hist,
+                                  {
+                                      req(input$drv_hist)
+                                      
+                                      master_table %>%
+                                          filter(drv_name %in% input$drv_hist)
+                                  })
+
+#Driver vs Driver Single Race Plots ####    
+        
+    output$drv_2_diff <- renderPlotly({
+        
+        validate(
+            need(input$drv_1 != input$drv_2, "Driver 2 must be different than Driver 1")
+        )
+        
+        dlt1 <- paste0("l_time_", str_remove(input$drv_1, "^[0-9]*:"))
+        dlt2 <- paste0("l_time_", str_remove(input$drv_2, "^[0-9]*:"))
+        
+        #Utilizes tidy evaluation patterns to feed in the correct column name
+        #I needed to specify the column orders to ensure that the driver differences were calculated correctly
+        diff_plot <- function(d1, d2) {
+            
+            race_table() %>%
+                filter(dp_name %in% c(input$drv_1, input$drv_2)) %>%
+                select(drv_name, lap, l_time, position) %>%
+                pivot_wider(names_from = drv_name, values_from = c(l_time, position)) %>%
+                arrange(lap) %>% #Make sure that laps are in the correct order before calculating the cumsum
+                mutate('Driver 1 Cumulative Lap Times' = hms::as_hms(as_datetime(seconds(cumsum(as.numeric(.data[[d1]]))))),
+                       'Driver 2 Cumulative Lap Times' = hms::as_hms(as_datetime(seconds(cumsum(as.numeric(.data[[d2]]))))),
+                       'Lap Diff' = .data[[d2]] - .data[[d1]]) %>%
+                mutate('Cumulative Lap Diff' = .[[7]] - .[[6]]) %>%
+                rename(Lap = lap) %>%
+                ggplot(aes(Lap, `Cumulative Lap Diff`)) + geom_line(col = my_pal[3]) +
+                scale_x_continuous(breaks = seq(0, 100, 5)) +
+                scale_y_time() +
+                geom_hline(yintercept = 0, col = "red") +
+                labs(x = "Lap", title = "Driver 2 Cumulative Delta Times") +
+                theme(plot.title = element_text(hjust = 0.5))
+            
+            ggplotly()
+            
+        }
+        
+        diff_plot(dlt1, dlt2)
+        
+    })
+    
     output$dvd_line <- renderPlotly({
         
         race_table() %>%
-            filter(drv_name %in% c(input$drv_1, input$drv_2)) %>%
-            ggplot(aes(lap, l_time, col = factor(drv_name), 
+            filter(dp_name %in% c(input$drv_1, input$drv_2)) %>%
+            ggplot(aes(lap, l_time, col = factor(drv_name),
+                       group = drv_name,
                        text = paste0("Driver: ", drv_name, "<br>",
                                      "Lap: ", lap, "<br>",
-                                     "Lap Time: ", l_time))) + geom_point() +
+                                     "Lap Time: ", l_time))) +
+            geom_point() + geom_line() +
             scale_x_continuous(breaks = seq(0, 100, 10)) +
-            geom_line() + labs(x = "Lap", y = "Lap Time", color = "Driver",
-                               title = "Driver vs Driver Race Performance")
+            labs(x = "Lap", y = "Lap Time", color = "Driver",
+                 title = "Driver vs Driver Race Performance") +
+            theme(plot.title = element_text(hjust = 0.5))
+        
+        ggplotly(tooltip = "text")
     })
+    
+    output$dvd_table <- DT::renderDataTable({
+
+        validate(
+            need(input$drv_1 != input$drv_2, "Driver 2 must be different than Driver 1")
+        )
+        
+        dlt1 <- paste0("l_time_", str_remove(input$drv_1, "^[0-9]*:"))
+        dlt2 <- paste0("l_time_", str_remove(input$drv_2, "^[0-9]*:"))
+        
+        #Utilizes tidy evaluation patterns to feed in the correct column name
+        #I needed to specify the column orders to ensure that the driver differences were calculated correctly
+        diff_table <- function(d1, d2) {
+            
+            race_table() %>%
+                filter(dp_name %in% c(input$drv_1, input$drv_2)) %>%
+                select(drv_name, lap, l_time, position) %>%
+                pivot_wider(names_from = drv_name, values_from = c(l_time, position)) %>%
+                arrange(lap) %>% #Make sure that laps are in the correct order before calculating the cumsum
+                mutate('Driver 1 Cumulative Lap Times' = hms::as_hms(as_datetime(seconds(cumsum(as.numeric(.data[[d1]]))))),
+                       'Driver 2 Cumulative Lap Times' = hms::as_hms(as_datetime(seconds(cumsum(as.numeric(.data[[d2]]))))),
+                       'Lap Diff' = round(.data[[d2]] - .data[[d1]], 2)) %>%
+                mutate('Cumulative Lap Diff' = round(.[[7]] - .[[6]], 2)) %>%
+                rename(Lap = lap,
+                       `Driver 1 Lap Times` = .data[[d1]],
+                       `Driver 2 Lap Times` = .data[[d2]]) %>%
+                select(1, `Driver 1 Lap Times`, `Driver 2 Lap Times`, `Lap Diff`, 
+                       `Driver 1 Cumulative Lap Times`, `Driver 2 Cumulative Lap Times`,
+                       `Cumulative Lap Diff`)
+        }
+        
+        diff_table(dlt1, dlt2) 
+           
+    })
+    
+#Driver Career Plots ####
+    
+    output$tot_pod <- renderPlotly({
+        
+        drv_table() %>%
+            group_by(drv_name) %>%
+            summarize(total_pod = sum(podium),
+                      total_win = sum(win),
+                      total_race = n_distinct(raceId)) %>%
+            pivot_longer(cols = c(total_pod, total_win, total_race), names_to = "perf_type") %>%
+            ggplot(aes(drv_name, reorder(value, value), fill = factor(perf_type))) + geom_col(position = "dodge")
+    })
+    
+#Map plot ####
+    # master_table %>%
+    #     group_by(name, lat, lng, drv_name) %>%
+    #     summarize(race_count = n_distinct(raceId)) -> drv_race_locs
+    # 
+    # ggplot() +
+    #     geom_map(data = world_data, map = world_data,
+    #              aes(x = long, y = lat, map_id = region),
+    #              fill = "#a8a8a8", color = "#ffffff", size = 0.5) +
+    #     geom_point(data = rc_count_ll, aes(x = lng, y = lat, size = race_count, col = factor(drv_name))) +
+    #     scale_radius(range = c(2, 7)) +
+    #     labs(size = "Race Count", title = "Total Races by Country (Global)") +
+    #     theme(axis.title=element_blank(),
+    #           axis.text=element_blank(),
+    #           axis.ticks=element_blank(),
+    #           plot.title = element_text(hjust = 0.5))
+    
     
     # pred_filter <- eventReactive(input$f_cast, {
     #     
