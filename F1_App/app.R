@@ -44,7 +44,7 @@ map_data("world") %>%
     filter(region != "Antarctica") -> world_data
 
 #Custom color pallette ####
-my_pal <- pal_rickandmorty()(7)
+my_pal <- pal_locuszoom()(7)
 
 #Application ####
 header <- dashboardHeader(
@@ -185,7 +185,7 @@ server <- function(input, output, session) {
                        'Lap Diff' = .data[[d2]] - .data[[d1]]) %>%
                 mutate('Cumulative Lap Diff' = .[[7]] - .[[6]]) %>%
                 rename(Lap = lap) %>%
-                ggplot(aes(Lap, `Cumulative Lap Diff`)) + geom_line(col = my_pal[3]) +
+                ggplot(aes(Lap, `Cumulative Lap Diff`)) + geom_line(col = my_pal[4]) +
                 scale_x_continuous(breaks = seq(0, 100, 5)) +
                 scale_y_time() +
                 geom_hline(yintercept = 0, col = "red") +
@@ -204,7 +204,7 @@ server <- function(input, output, session) {
         
         race_table() %>%
             filter(dp_name %in% c(input$drv_1, input$drv_2)) %>%
-            ggplot(aes(lap, l_time, col = factor(drv_name),
+            ggplot(aes(lap, l_time, col = factor(dp_name),
                        group = drv_name,
                        text = paste0("Driver: ", drv_name, "<br>",
                                      "Lap: ", lap, "<br>",
@@ -213,7 +213,8 @@ server <- function(input, output, session) {
             scale_x_continuous(breaks = seq(0, 100, 10)) +
             labs(x = "Lap", y = "Lap Time", color = "Driver",
                  title = "Driver vs Driver Race Performance") +
-            theme(plot.title = element_text(hjust = 0.5))
+            theme(plot.title = element_text(hjust = 0.5)) +
+            scale_color_manual(values = c(my_pal[1], my_pal[4]))
         
         ggplotly(tooltip = "text")
     })
@@ -262,7 +263,19 @@ server <- function(input, output, session) {
                       total_win = sum(win),
                       total_race = n_distinct(raceId)) %>%
             pivot_longer(cols = c(total_pod, total_win, total_race), names_to = "perf_type") %>%
-            ggplot(aes(drv_name, reorder(value, value), fill = factor(perf_type))) + geom_col(position = "dodge")
+            mutate(perf_type = recode(perf_type, "total_race" = "Total Races", "total_pod" = "Total Podiums",
+                                      "total_win" = "Total Wins"),
+                   perf_type = factor(perf_type, levels = c("Total Races", "Total Podiums", "Total Wins"))) %>%
+            ggplot(aes(drv_name, value, fill = perf_type,
+                       text = paste0("Driver: ", drv_name, "<br>",
+                                     "Race Metric: ", perf_type, "<br>",
+                                     "Total: ", value))) + geom_col(position = "dodge") +
+            scale_fill_manual(values = c("Total Races" = my_pal[4], "Total Podiums" = my_pal[5], "Total Wins" = my_pal[3]),
+                              name = "Race Metric") +
+            labs(x = "Driver", y = "Metric Count", title = "Career Races/Podiums/Wins") +
+            theme(plot.title = element_text(hjust = 0.5))
+        
+        ggplotly(tooltip = "text")
     })
     
 #Map plot ####
