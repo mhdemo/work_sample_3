@@ -185,14 +185,19 @@ server <- function(input, output, session) {
                        'Lap Diff' = .data[[d2]] - .data[[d1]]) %>%
                 mutate('Cumulative Lap Diff' = .[[7]] - .[[6]]) %>%
                 rename(Lap = lap) %>%
-                ggplot(aes(Lap, `Cumulative Lap Diff`)) + geom_line(col = my_pal[4]) +
+                ggplot(aes(Lap, `Cumulative Lap Diff`,
+                           group = 1,
+                           text = paste0("Driver: ", str_remove(input$drv_2, "^[0-9]*:"), "<br>",
+                                         "Lap: ", Lap, "<br>",
+                                         "Cumulative Lap Diff (s): ", round(`Cumulative Lap Diff`, 2)))) + 
+                geom_line(col = my_pal[4]) +
                 scale_x_continuous(breaks = seq(0, 100, 5)) +
                 scale_y_time() +
                 geom_hline(yintercept = 0, col = "red") +
-                labs(x = "Lap", title = "Driver 2 Cumulative Delta Times") +
+                labs(x = "Lap", title = paste0(input$drv_2, " vs. ", input$drv_1, " - Delta Times")) +
                 theme(plot.title = element_text(hjust = 0.5))
             
-            ggplotly()
+            ggplotly(tooltip = "text")
             
         }
         
@@ -211,7 +216,7 @@ server <- function(input, output, session) {
                                      "Lap Time: ", l_time))) +
             geom_point() + geom_line() +
             scale_x_continuous(breaks = seq(0, 100, 10)) +
-            labs(x = "Lap", y = "Lap Time", color = "Driver",
+            labs(x = "Lap", y = "Lap Time", color = "Final Position:Driver",
                  title = "Driver vs Driver Race Performance") +
             theme(plot.title = element_text(hjust = 0.5)) +
             scale_color_manual(values = c(my_pal[1], my_pal[4]))
