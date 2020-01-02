@@ -46,7 +46,12 @@ in their next race.
 
 ## R Shiny Dashboard
 
-Coming soon…
+A R Shiny application utilizing the data from this analysis can be found
+at the link below. This application allows anyone to use a graphical
+interface to conduct their own analysis of the data. <br>
+
+[R Shiny
+Application](https://mhdemo7.shinyapps.io/Formula_One_Analysis_App/)
 
 ## Data Sources
 
@@ -55,7 +60,9 @@ related to Formula One races from 1950 through 2017. The data are
 currently separated into various tables. Part of this exercise will
 require me to verify the accuracy of the data and combine the tables
 into a more easy to interpret format. The data used for this analysis
-can be found at the following Kaggle link. <br> [F1 Race
+can be found at the following Kaggle link. <br>
+
+[F1 Race
 Data](https://www.kaggle.com/cjgdev/formula-1-race-data-19502017)
 
 ## Data Import
@@ -366,6 +373,9 @@ master_table %>%
   select(-fastestLapTime) %>%
   left_join(f_lap_times, by = c("raceId", "driverId")) %>%
   left_join(total_stops, by = c("raceId", "driverId")) -> master_table
+
+#Exports the data to be used in the R Shiny application
+write_rds(master_table, path = paste0(here(), "/F1_App/master_table.rds"))
 ```
 
 ## Data Analysis
