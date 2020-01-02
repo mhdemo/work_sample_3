@@ -11,10 +11,12 @@ library(tidyr)
 library(ggsci)
 library(DT)
 library(here)
+library(janitor)
+library(maps)
 
 #Loads data ####
-master_table <- read_rds(paste0(here(), "/F1_App/master_table.rds"))
-lap_times <- read_csv(paste0(here(), "/F1_App/lapTimes.csv"))
+master_table <- read_rds("master_table.rds")
+lap_times <- read_csv("lapTimes.csv")
 
 #Formats data ####
 lap_times %>%
@@ -58,10 +60,6 @@ sidebar <- dashboardSidebar(
         menuItem("Driver vs. Driver: Career", tabName = "drv_career", icon = icon("chart-line")),
         menuItem("Stats by Location", tabName = "geo_stat", icon = icon("chart-line")),
         menuItem("Total Wins/Podiums by Agg", tabName = "wpa", icon = icon("chart-bar"))
-        # selectizeInput("agg_grp", "Aggregate Selecrion",
-        #                choices = c("All", "Butter" = "butter", "Cheese Barrel" = "cheese_barrel",
-        #                            "Cheese Block" = "cheese_block", "Dry Milk" = "dry_milk",
-        #                            "Dry Whey" = "dry_whey"))
     )
 )
 
@@ -89,8 +87,7 @@ body <- dashboardBody(
                 fluidRow(
                     box(plotlyOutput("dvd_line", height = 500), width = 12)),
                 fluidRow(
-                    box(DT::dataTableOutput("dvd_table"), width = 12)
-                )
+                    box(DT::dataTableOutput("dvd_table"), width = 12))
         ),
         tabItem(tabName = "drv_career",
                 fluidRow(
@@ -117,7 +114,8 @@ body <- dashboardBody(
                                           choices = NULL))),
                 
                 fluidRow(
-                    box(plotOutput("pod_locs", height = 500), width = 12))
+                    box(plotOutput("pod_locs", height = 500), width = 12),
+                    box(DT::dataTableOutput("pod_l_table"), width = 12))
         )
     )
 )
@@ -188,7 +186,8 @@ server <- function(input, output, session) {
                  {updateSelectizeInput(session, "agg_filter_geo",
                                        choices = master_table %>%
                                            pull(input$agg_lvl_geo) %>%
-                                           unique())})
+                                           unique() %>%
+                                           sort())})
 
 #Driver vs Driver Single Race Plots ####    
         
@@ -351,11 +350,11 @@ server <- function(input, output, session) {
                 geom_map(data = world_data, map = world_data,
                          aes(x = long, y = lat, map_id = region),
                          fill = "#a8a8a8", color = "#ffffff", size = 0.5) +
-                geom_point(data = geo_df, aes(x = lng, y = lat, col = factor({{ metr }})),
-                           alpha = 0.75, size = 4, shape = 1, stroke = 2) +
-                #scale_radius(range = c(2, 7)) +
+                geom_point(data = geo_df, aes(x = lng, y = lat, size = n),
+                           alpha = 0.75, shape = 1, stroke = 2, col = my_pal[1]) +
+                scale_radius(range = c(2, 7)) +
                 scale_color_locuszoom() +
-                labs(col = paste0(input$agg_lvl_geo), title = "Podium Locations") +
+                labs(size = input$agg_lvl_geo, title = "Podium Locations") +
                 theme(axis.title=element_blank(),
                       axis.text=element_blank(),
                       axis.ticks=element_blank(),
@@ -364,6 +363,24 @@ server <- function(input, output, session) {
         }
         
         agg_pod_plot(master_table, !!sym(input$agg_lvl_geo), input$agg_filter_geo)
+        
+    })
+    
+    output$pod_l_table <- DT::renderDataTable({
+        
+        agg_pod_table <- function(dat, metr, m_filter) {
+            
+            dat %>%
+                filter(podium == TRUE) %>%
+                mutate(r_loc = paste0(location, ", ", country)) %>%
+                count({{ metr }}, r_loc) %>%
+                filter({{ metr }} == m_filter) %>%
+                arrange(desc(n)) 
+            
+        }
+        
+        agg_pod_table(master_table, !!sym(input$agg_lvl_geo), input$agg_filter_geo) %>%
+            rename("Filter" = 1,  "Location" = 2, "Podium Count" = 3)
         
     })
     
