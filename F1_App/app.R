@@ -56,6 +56,7 @@ sidebar <- dashboardSidebar(
     sidebarMenu(
         menuItem("Driver vs. Driver: Single Race", tabName = "drv_v_drv", icon = icon("chart-line")),
         menuItem("Driver vs. Driver: Career", tabName = "drv_career", icon = icon("chart-line")),
+        menuItem("Stats by Location", tabName = "geo_stat", icon = icon("chart-line")),
         menuItem("Total Wins/Podiums by Agg", tabName = "wpa", icon = icon("chart-bar"))
         # selectizeInput("agg_grp", "Aggregate Selecrion",
         #                choices = c("All", "Butter" = "butter", "Cheese Barrel" = "cheese_barrel",
@@ -101,7 +102,22 @@ body <- dashboardBody(
                                           selected = "Lewis Hamilton",
                                           multiple = TRUE))),
                 fluidRow(
-                    box(plotlyOutput("tot_pod", height = 500), width = 12))
+                    box(plotlyOutput("tot_pod", height = 500), width = 12),
+                    box(plotlyOutput("tot_const", height = 500), width = 12))
+        ),
+        tabItem(tabName = "geo_stat",
+                fluidRow(
+                    column(2, offset = 0, style = "padding:1px",
+                           selectizeInput("agg_lvl_geo", "Select Aggregation Level:",
+                                          choices = c("Driver" = "drv_name", "Nationality" = "nationality", 
+                                                      "Constructor" = "c_name", "Age Group"),
+                                          selected = "Driver")),
+                    column(2, offset = 0, style = "padding:1px",
+                           selectizeInput("agg_filter_geo", "Select Filter:",
+                                          choices = NULL))),
+                
+                fluidRow(
+                    box(plotOutput("pod_locs", height = 500), width = 12))
         )
     )
 )
@@ -159,6 +175,20 @@ server <- function(input, output, session) {
                                       master_table %>%
                                           filter(drv_name %in% input$drv_hist)
                                   })
+    
+    drv_const_table <- eventReactive(input$drv_hist,
+                                   {
+                                       req(input$drv_hist)
+                                       
+                                       master_table %>%
+                                           filter(drv_name %in% input$drv_hist[1:2])
+                                   })
+    
+    observeEvent(input$agg_lvl_geo,
+                 {updateSelectizeInput(session, "agg_filter_geo",
+                                       choices = master_table %>%
+                                           pull(input$agg_lvl_geo) %>%
+                                           unique())})
 
 #Driver vs Driver Single Race Plots ####    
         
@@ -282,6 +312,61 @@ server <- function(input, output, session) {
         
         ggplotly(tooltip = "text")
     })
+    
+    output$tot_const <- renderPlotly({
+        
+        drv_const_table() %>%
+            group_by(drv_name) %>%
+            count(c_name) %>%
+            mutate(n_perc = n / sum(n),
+                   cg_name = if_else(n_perc < 0.20, "Other", c_name)) %>%
+            ungroup() %>%
+            ggplot(aes(drv_name, n, fill = reorder(factor(cg_name), n),
+                       text = paste0("Driver: ", drv_name, "<br>",
+                                     "Contstructor: ", cg_name, "<br>",
+                                     "Race Count: ", n))) + geom_col(position = "stack") +
+            labs(x = "Driver", title = "Races with Constructors", fill = "Constructors", y = "",
+                 caption = "Constructors that make up less than 20% of a Driver's career races are categorized as 'Other'") +
+            theme(plot.title = element_text(hjust = 0.5)) +
+            scale_fill_locuszoom()
+        
+        ggplotly(tooltip = "text") %>%
+            layout(annotations = list(x = 1, y = -0.1, text = "Constructors that make up less than 20% of a Driver's career races are categorized as 'Other'", 
+                                      showarrow = F, xref = 'paper', yref = 'paper', 
+                                      font = list(size = 8, color = "red")))
+        
+    })
+    
+    output$pod_locs <- renderPlot({
+        
+        
+        agg_pod_plot <- function(dat, metr, m_filter) {
+            
+            dat %>%
+                filter(podium == TRUE) %>%
+                count({{ metr }}, lng, lat) %>%
+                filter({{ metr }} == m_filter) -> geo_df
+            
+            ggplot() +
+                geom_map(data = world_data, map = world_data,
+                         aes(x = long, y = lat, map_id = region),
+                         fill = "#a8a8a8", color = "#ffffff", size = 0.5) +
+                geom_point(data = geo_df, aes(x = lng, y = lat, col = factor({{ metr }})),
+                           alpha = 0.75, size = 4, shape = 1, stroke = 2) +
+                #scale_radius(range = c(2, 7)) +
+                scale_color_locuszoom() +
+                labs(col = paste0(input$agg_lvl_geo), title = "Podium Locations") +
+                theme(axis.title=element_blank(),
+                      axis.text=element_blank(),
+                      axis.ticks=element_blank(),
+                      plot.title = element_text(hjust = 0.5))
+            
+        }
+        
+        agg_pod_plot(master_table, !!sym(input$agg_lvl_geo), input$agg_filter_geo)
+        
+    })
+    
     
 #Map plot ####
     # master_table %>%
