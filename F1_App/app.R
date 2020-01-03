@@ -18,6 +18,10 @@ library(maps)
 master_table <- read_rds("master_table.rds")
 lap_times <- read_csv("lapTimes.csv")
 
+#Used when working in r project directory
+master_table <- read_rds(paste0(here(), "/F1_App/master_table.rds"))
+lap_times <- read_csv(paste0(here(), "/F1_App/lapTimes.csv"))
+
 #Formats data ####
 lap_times %>%
     mutate(l_time = hms::as_hms(as_datetime(milliseconds(milliseconds)))) %>%
@@ -34,8 +38,16 @@ lap_times %>%
            dp_name = paste0(f_position, ":", drv_name)) -> lap_times
 
 master_table %>%
+    filter(!is.na(dob)) %>%
     mutate(drv_name = iconv(paste(forename, surname), 
-                            from = "UTF-8", to = "ASCII", sub = "")) %>%
+                            from = "UTF-8", to = "ASCII", sub = ""),
+           race_age = time_length(interval(dob, race_date), "years"),
+           ra_group = as.character(cut(race_age, breaks = seq(15, 60, 5),
+                                       labels = c("16-20", "21-25",
+                                                  "26-30", "31-35",
+                                                  "36-40", "41-45",
+                                                  "46-50", "51-55", 
+                                                  "56-60")))) %>%
     group_by(driverId) %>%
     mutate(podium = if_else(positionOrder %in% c(1:3), 1, 0),
            win = if_else(positionOrder == 1, 1, 0)) %>%
@@ -107,7 +119,7 @@ body <- dashboardBody(
                     column(2, offset = 0, style = "padding:1px",
                            selectizeInput("agg_lvl_geo", "Select Aggregation Level:",
                                           choices = c("Driver" = "drv_name", "Nationality" = "nationality", 
-                                                      "Constructor" = "c_name", "Age Group"),
+                                                      "Constructor" = "c_name", "Race Day Age" = "ra_group"), #Add age grouping
                                           selected = "Driver")),
                     column(2, offset = 0, style = "padding:1px",
                            selectizeInput("agg_filter_geo", "Select Filter:",
