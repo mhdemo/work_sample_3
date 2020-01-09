@@ -15,8 +15,8 @@ library(janitor)
 library(maps)
 
 #Loads data ####
-master_table <- read_rds("master_table.rds")
-lap_times <- read_csv("lapTimes.csv")
+#master_table <- read_rds("master_table.rds")
+#lap_times <- read_csv("lapTimes.csv")
 
 #Used when working in r project directory
 master_table <- read_rds(paste0(here(), "/F1_App/master_table.rds"))
@@ -70,8 +70,7 @@ sidebar <- dashboardSidebar(
     sidebarMenu(
         menuItem("Driver vs. Driver: Single Race", tabName = "drv_v_drv", icon = icon("chart-line")),
         menuItem("Driver vs. Driver: Career", tabName = "drv_career", icon = icon("chart-line")),
-        menuItem("Stats by Location", tabName = "geo_stat", icon = icon("chart-line")),
-        menuItem("Total Wins/Podiums by Agg", tabName = "wpa", icon = icon("chart-bar"))
+        menuItem("Total Podiums by Agg", tabName = "agg_stat", icon = icon("chart-line"))
     )
 )
 
@@ -114,7 +113,7 @@ body <- dashboardBody(
                     box(plotlyOutput("tot_pod", height = 500), width = 12),
                     box(plotlyOutput("tot_const", height = 500), width = 12))
         ),
-        tabItem(tabName = "geo_stat",
+        tabItem(tabName = "agg_stat",
                 fluidRow(
                     column(2, offset = 0, style = "padding:1px",
                            selectizeInput("agg_lvl_geo", "Select Aggregation Level:",
