@@ -2,6 +2,8 @@ library(shinydashboard)
 library(shiny)
 library(ggplot2)
 library(dplyr)
+library(purrr)
+library(zoo)
 library(plotly)
 library(lubridate)
 library(scales)
@@ -70,7 +72,8 @@ sidebar <- dashboardSidebar(
     sidebarMenu(
         menuItem("Driver vs. Driver: Single Race", tabName = "drv_v_drv", icon = icon("chart-line")),
         menuItem("Driver vs. Driver: Career", tabName = "drv_career", icon = icon("chart-line")),
-        menuItem("Total Podiums by Agg", tabName = "agg_stat", icon = icon("chart-line"))
+        menuItem("Total Podiums by Agg", tabName = "agg_stat", icon = icon("chart-line")),
+        menuItem("Top 10 Nations/Constructors", tabName = "top10ot", icon = icon("chart-line"))
     )
 )
 
@@ -127,6 +130,16 @@ body <- dashboardBody(
                 fluidRow(
                     box(plotOutput("pod_locs", height = 500), width = 12),
                     box(DT::dataTableOutput("pod_l_table"), width = 12))
+        ),
+        tabItem(tabName = "top10ot",
+                fluidRow(
+                    column(2, offset = 0, style = "padding:1px",
+                           selectizeInput("agg_lvl_top", "Select Aggregation Level:",
+                                          choices = c("Nation" = "nationality",
+                                                    "Constructor" = "c_name"),
+                                          selected = "Nation"))),
+                    fluidRow(
+                        box(plotlyOutput("top_ot_bar", height = 500), width = 12))
         )
     )
 )
@@ -395,122 +408,50 @@ server <- function(input, output, session) {
         
     })
     
-    
-#Map plot ####
-    # master_table %>%
-    #     group_by(name, lat, lng, drv_name) %>%
-    #     summarize(race_count = n_distinct(raceId)) -> drv_race_locs
-    # 
-    # ggplot() +
-    #     geom_map(data = world_data, map = world_data,
-    #              aes(x = long, y = lat, map_id = region),
-    #              fill = "#a8a8a8", color = "#ffffff", size = 0.5) +
-    #     geom_point(data = rc_count_ll, aes(x = lng, y = lat, size = race_count, col = factor(drv_name))) +
-    #     scale_radius(range = c(2, 7)) +
-    #     labs(size = "Race Count", title = "Total Races by Country (Global)") +
-    #     theme(axis.title=element_blank(),
-    #           axis.text=element_blank(),
-    #           axis.ticks=element_blank(),
-    #           plot.title = element_text(hjust = 0.5))
-    
-    
-    # pred_filter <- eventReactive(input$f_cast, {
-    #     
-    #     req(input$h_cast)
-    #     
-    #     pred_table <- data.frame("sale_date" = date("1/1/1"), "product" = NA, "price" = NA, "value_type" = NA)
-    #     
-    #     n <- ncol(avg_dairy_ts)
-    #     i <- c()
-    #     
-    #     for(i in 1:n) {
-    #         
-    #         train <- window(avg_dairy_ts[, i], end = c(year(max_sale_date - months(input$h_cast)), 
-    #                                                    month(max_sale_date - months(input$h_cast))))
-    #         test <- window(avg_dairy_ts[, i], start = c(year(max_sale_date - months(input$h_cast - 1)), 
-    #                                                     month(max_sale_date - months(input$h_cast - 1))))
-    #         
-    #         fit_arima <- auto.arima(train)
-    #         fc1 <- forecast(fit_arima, h = input$h_cast, level = c(95))
-    #         
-    #         date(max_sale_date) -> pred_table[i, 1]
-    #         dairy_products[i] -> pred_table[i, 2]
-    #         as.vector(fc1$mean)[input$h_cast] -> pred_table[i, 3]
-    #         "pred" -> pred_table[i, 4]
-    #         
-    #     }
-    #     
-    #     avg_dairy_tbl %>%
-    #         bind_rows(pred_table) %>%
-    #         filter(product == input$prod)
-    #     
-    # })
-    # 
-    # product_filter <- reactive({
-    #     
-    #     req(input$prod)
-    #     
-    #     dairy_data %>%
-    #         filter(product == input$prod)
-    #     
-    # })
-    # 
-    # output$line_gr <- renderPlotly({
-    #     
-    #     req(input$prod)
-    #     
-    #     line_plot <- function(dat, metr) {
-    #         
-    #         dat %>%
-    #             ggplot(aes(sale_date, {{ metr }}, col = product, group = 1,
-    #                        text = paste("Product:", product, "<br>",
-    #                                     "Sale Date:", sale_date, "<br>",
-    #                                     "Metric:", {{ metr }}))) + geom_line() +
-    #             scale_y_continuous(labels = comma) +
-    #             labs(x = "Date", y = paste0(tools::toTitleCase(str_replace_all(input$metric, "_", " "))),
-    #                  color = "Product", title = paste(tools::toTitleCase(str_replace_all(input$prod, "_", " ")), 
-    #                                                   tools::toTitleCase(str_replace_all(input$metric, "_", " ")), "Trends")) + 
-    #             scale_color_npg() + theme(plot.title = element_text(hjust = 0.5))
-    #         
-    #         ggplotly(tooltip = "text")
-    #     }
-    #     
-    #     if(input$prod == "All") {
-    #         
-    #         line_plot(dairy_data, !!sym(input$metric))
-    #         
-    #     } else {
-    #         
-    #         line_plot(product_filter(), !!sym(input$metric))
-    #         
-    #     }
-    #     
-    # })
-    # 
-    # output$fore_gr <- renderPlotly({
-    #     
-    #     if(input$prod == "All") {
-    #         
-    #         ggplot(data = data.frame("Sale Date" = NA, "Price" = NA),
-    #                aes("Sale Date", Price)) + geom_point() +
-    #             labs(title = "Select Individual Dairy Product") +
-    #             theme(plot.title = element_text(hjust = 0.5))
-    #         
-    #     } else {
-    #         
-    #         pred_filter() %>%
-    #             filter(value_type == "actual") %>%
-    #             ggplot(aes(sale_date, price)) + geom_line(col = my_pal[3]) +
-    #             labs(title = "Actual vs. Predicted Price", x = "Sale Date", y = "Price") +
-    #             scale_color_discrete(name = "") + 
-    #             geom_point(data = pred_filter() %>% 
-    #                            filter(value_type == "pred"),
-    #                        aes(sale_date, price, col = "Forecast"), size = 3) +
-    #             theme(plot.title = element_text(hjust = 0.5))
-    #         
-    #     }
-    #     
-    # })
+    output$top_ot_bar <- renderPlotly({
+        
+        top_10_filter <- function(dat, vrb, vrb_name) {
+            
+            plty_vrb <- rlang::enquo(vrb_name)
+            
+            dat %>%
+                group_by({{ vrb }}) %>%
+                summarize(total_p = sum(podium)) %>%
+                arrange(desc(total_p)) %>%
+                head(10) %>%
+                pull({{ vrb }}) -> top_10_vrb
+            
+            dat %>%
+                filter({{ vrb }} %in% top_10_vrb) %>%
+                group_by(race_year, {{ vrb }}) %>%
+                summarize(annual_podium = sum(podium)) %>%
+                ungroup() %>%
+                arrange(race_year) %>%
+                pivot_wider(names_from = {{ vrb }}, values_from = annual_podium) %>%
+                map_df(~na.locf(.x, na.rm = FALSE)) %>%
+                map_df(~if_else(is.na(.x), 0, .x)) %>%
+                pivot_longer(cols = c(2:ncol(.)), names_to = vrb_name, values_to = "annual_podium") %>%
+                group_by({{ vrb }}) %>%
+                nest() %>%
+                mutate(cumm_podiums = map(data, ~cumsum(.x$annual_podium))) %>%
+                unnest(c(data, cumm_podiums)) %>%
+                ungroup() %>%
+                select(-annual_podium) -> vrb_top_10
+            
+            rlang::eval_tidy(
+                rlang::quo_squash(quo(
+                    plot_ly(vrb_top_10,
+                            x = ~{{ vrb }},
+                            y = ~cumm_podiums,
+                            color = ~{{ vrb }},
+                            type = "bar",
+                            frame = ~race_year))))
+            
+        }
+        
+        top_10_filter(master_table, !!sym(input$agg_lvl_top), input$agg_lvl_top)
+        
+    })
     
 }
 
