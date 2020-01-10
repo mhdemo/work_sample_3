@@ -445,7 +445,8 @@ server <- function(input, output, session) {
                             color = ~{{ vrb }},
                             colors = my_pal,
                             type = "bar",
-                            frame = ~race_year))))
+                            frame = ~race_year) %>% layout(yaxis = list(title = "Total Podiums"),
+                                                           xaxis = list(title = "Top 10"))))) 
             
         }
         
