@@ -136,7 +136,8 @@ body <- dashboardBody(
                     column(2, offset = 0, style = "padding:1px",
                            selectizeInput("agg_lvl_top", "Select Aggregation Level:",
                                           choices = c("Nation" = "nationality",
-                                                    "Constructor" = "c_name"),
+                                                    "Constructor" = "c_name",
+                                                    "Driver" = "drv_name"),
                                           selected = "Nation"))),
                     fluidRow(
                         box(plotlyOutput("top_ot_bar", height = 500), width = 12))
@@ -428,7 +429,6 @@ server <- function(input, output, session) {
                 ungroup() %>%
                 arrange(race_year) %>%
                 pivot_wider(names_from = {{ vrb }}, values_from = annual_podium) %>%
-                map_df(~na.locf(.x, na.rm = FALSE)) %>%
                 map_df(~if_else(is.na(.x), 0, .x)) %>%
                 pivot_longer(cols = c(2:ncol(.)), names_to = vrb_name, values_to = "annual_podium") %>%
                 group_by({{ vrb }}) %>%
@@ -444,6 +444,7 @@ server <- function(input, output, session) {
                             x = ~{{ vrb }},
                             y = ~cumm_podiums,
                             color = ~{{ vrb }},
+                            colors = my_pal,
                             type = "bar",
                             frame = ~race_year))))
             
