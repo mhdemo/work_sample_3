@@ -72,7 +72,7 @@ sidebar <- dashboardSidebar(
         menuItem("Driver vs. Driver: Single Race", tabName = "drv_v_drv", icon = icon("chart-line")),
         menuItem("Driver vs. Driver: Career", tabName = "drv_career", icon = icon("chart-line")),
         menuItem("Total Podiums by Agg", tabName = "agg_stat", icon = icon("chart-line")),
-        menuItem("Top 10 Nations/Constructors", tabName = "top10ot", icon = icon("chart-line"))
+        menuItem("Top 10 By Agg Level", tabName = "top10ot", icon = icon("chart-line"))
     )
 )
 
